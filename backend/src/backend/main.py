@@ -135,11 +135,32 @@ def ask(
     competition_id: Comp = DEFAULT_COMP,
     season_id: Season = DEFAULT_SEASON,
 ) -> dict[str, Any]:
+    import anthropic
+
     if not ask_module.is_enabled():
         raise HTTPException(
             503, "Q&A is disabled: the server has no ANTHROPIC_API_KEY configured"
         )
-    result = ask_module.ask(team_id, competition_id, season_id, body.question)
+    try:
+        result = ask_module.ask(team_id, competition_id, season_id, body.question)
+    except anthropic.AuthenticationError as exc:
+        raise HTTPException(
+            401,
+            "Anthropic rejected the API key. Check ANTHROPIC_API_KEY in your .env "
+            "(it should start with 'sk-ant-') and restart the server.",
+        ) from exc
+    except anthropic.PermissionDeniedError as exc:
+        raise HTTPException(
+            403,
+            "That API key lacks access to this model, or the account has no credit. "
+            "Check billing at console.anthropic.com.",
+        ) from exc
+    except anthropic.RateLimitError as exc:
+        raise HTTPException(429, "Rate limited by the Anthropic API — retry shortly.") from exc
+    except anthropic.APIConnectionError as exc:
+        raise HTTPException(503, "Could not reach the Anthropic API — check connectivity.") from exc
+    except anthropic.APIStatusError as exc:
+        raise HTTPException(502, f"Anthropic API error ({exc.status_code}).") from exc
     if result is None:
         raise HTTPException(404, "unknown team in this competition")
     return result

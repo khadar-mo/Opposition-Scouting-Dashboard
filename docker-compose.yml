@@ -21,6 +21,9 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://scout:scout@db:5432/scouting
+      # Optional: enables the "Ask" tab. Compose reads this from a .env file
+      # in the repo root (or the shell environment); empty = feature off.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

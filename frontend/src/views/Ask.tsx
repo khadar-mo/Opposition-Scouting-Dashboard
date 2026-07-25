@@ -57,7 +57,7 @@ export function Ask({ teamId, teamName, comp }: { teamId: number; teamName: stri
         </div>
         {mutation.isError && (
           <p className="note" style={{ color: 'var(--shot)' }}>
-            Something went wrong — {String(mutation.error)}
+            {mutation.error instanceof Error ? mutation.error.message : String(mutation.error)}
           </p>
         )}
         {mutation.data && (

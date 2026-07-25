@@ -115,13 +115,23 @@ uv run python -m pipeline matchpack --teams "Spain,France" --comp 43-106 --out m
 pixel-identical to the dashboard's print view — one source of truth for
 on-screen and on-paper.
 
-**Experimental — opponent Q&A.** An optional "Ask" tab answers natural-language
-questions ("how should we defend their corners?") strictly from the dashboard's
-precomputed tables, citing numbers and sample sizes, via the Claude API
-(`claude-opus-5`, with server-side refusal fallbacks enabled). It is **off by
-default** and appears only when the server has an `ANTHROPIC_API_KEY` — the core
-product never depends on an external API (rationale in
-[`ROADMAP.md`](ROADMAP.md)).
+### Optional: the experimental "Ask" tab
+
+An optional Q&A tab answers natural-language questions ("how should we defend
+their corners?") strictly from the dashboard's precomputed tables, citing
+numbers and sample sizes, via the Claude API (`claude-opus-5`). It is **off by
+default** — the core product never depends on an external API (rationale in
+[`ROADMAP.md`](ROADMAP.md)). To switch it on:
+
+```bash
+cp .env.example .env      # then paste your key into ANTHROPIC_API_KEY=
+```
+
+Get a key from [console.anthropic.com](https://console.anthropic.com/settings/keys)
+— it is pay-as-you-go and separate from any Claude subscription. Restart the API
+(`uv run uvicorn backend.main:app --port 8000`, or `docker compose up -d app`)
+and the "Ask" tab appears. `.env` is gitignored; `GET /api/health` reports
+`ask_enabled` so you can confirm the key was picked up.
 
 Deployment config for Fly.io is in [`fly.toml`](fly.toml) (single app image +
 attached Fly Postgres; the pipeline loads data from your machine through

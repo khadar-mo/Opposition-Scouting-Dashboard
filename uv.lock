@@ -2806,6 +2806,7 @@ dependencies = [
     { name = "anthropic" },
     { name = "fastapi" },
     { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -2822,6 +2823,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.116" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
+    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 

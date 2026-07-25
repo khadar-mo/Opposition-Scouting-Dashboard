@@ -157,9 +157,20 @@ export interface Report {
   watchlist: WatchlistPlayer[]
 }
 
+/** Surface FastAPI's `detail` message, which explains what to fix. */
+async function failure(res: Response, path: string): Promise<Error> {
+  const detail = await res
+    .json()
+    .then((body: { detail?: unknown }) =>
+      typeof body.detail === 'string' ? body.detail : null,
+    )
+    .catch(() => null)
+  return new Error(detail ?? `${res.status} ${res.statusText} for ${path}`)
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`)
+  if (!res.ok) throw await failure(res, path)
   return res.json() as Promise<T>
 }
 
@@ -189,7 +200,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`)
+  if (!res.ok) throw await failure(res, path)
   return res.json() as Promise<T>
 }
 
