@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { api, type CompKey } from '../api'
+import { paragraphs, renderEmphasis } from '../lib/text'
 
 const SUGGESTIONS = [
   'Where do they create most of their danger, and does it survive pressure?',
@@ -62,7 +63,9 @@ export function Ask({ teamId, teamName, comp }: { teamId: number; teamName: stri
         )}
         {mutation.data && (
           <div className="ask-answer">
-            <p>{mutation.data.answer}</p>
+            {paragraphs(mutation.data.answer).map((para, i) => (
+              <p key={i}>{renderEmphasis(para)}</p>
+            ))}
             <div className="ask-meta">answered by {mutation.data.model} · grounded in dashboard data only</div>
           </div>
         )}
