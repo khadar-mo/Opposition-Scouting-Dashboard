@@ -11,7 +11,17 @@ a pipeline re-run.
 
 **The persona behind every decision:** an analyst preparing on a Tuesday for a
 Saturday fixture. Fast loads, plain language, sensible defaults, minimal clicks
-to insight.
+to insight. Product judgment — what I'd validate with analysts before building
+more, and what was deliberately cut — is recorded in [`ROADMAP.md`](ROADMAP.md).
+
+![Dashboard walkthrough](docs/screenshots/walkthrough.gif)
+
+| | |
+|---|---|
+| ![Threat map](docs/screenshots/threat-map.png) | ![Build-up patterns](docs/screenshots/build-up-patterns.png) |
+| *Threat map — where Argentina generate xT* | *Build-up patterns — Spain's routes, replayable* |
+| ![Pass network](docs/screenshots/pass-network.png) | ![Set pieces](docs/screenshots/set-pieces.png) |
+| *Pass network — phase-filterable* | *Set pieces — deliveries & first contacts* |
 
 ## What it does
 
