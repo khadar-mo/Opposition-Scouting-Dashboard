@@ -22,17 +22,20 @@ more, and what was deliberately cut — is recorded in [`ROADMAP.md`](ROADMAP.md
 | *Threat map — where Argentina generate xT* | *Build-up patterns — Spain's routes, replayable* |
 | ![Pass network](docs/screenshots/pass-network.png) | ![Set pieces](docs/screenshots/set-pieces.png) |
 | *Pass network — phase-filterable* | *Set pieces — deliveries & first contacts* |
+| ![Watchlist](docs/screenshots/watchlist.png) | ![Match report](docs/screenshots/match-report.png) |
+| *Watchlist — top threat creators, with generated notes* | *Match report — printable one-pager* |
 
 ## What it does
 
 | View | The question it answers |
 |---|---|
-| **Threat map** | Where does this opponent generate danger from? (xT by zone of origin, interactive pitch heatmap) |
+| **Threat map** | Where does this opponent generate danger from? Interactive xT heatmap by zone of origin, with an **under-pressure** toggle showing which of that threat survives being pressed |
 | **Pass network** | Who connects with whom, filterable by phase (open play / goal kicks / counters / set pieces) |
 | **Build-up patterns** | Their recurring routes to the final third — clustered, ranked by share, each replayable step-by-step on the pitch |
 | **Set pieces** | Corner delivery zones, in/out-swing, first-contact outcomes |
 | **Watchlist** | Top opponent players by threat created per 90, with generated one-line scouting notes |
 | **Match report** | A one-page printable summary a coach can read in two minutes |
+| **Ask** *(optional)* | Natural-language questions answered strictly from the tables above — off unless an API key is configured |
 
 ## Architecture
 
@@ -51,11 +54,14 @@ statsbomb/open-data (raw JSON)
         │
         ▼
    /backend  FastAPI (read-only, precomputed) ──► /frontend  React + TS + d3
+        └─ optional /ask ──► Claude API, grounded only in the tables above
 ```
 
 - **`/pipeline`** — download + ingestion (Polars), schema DDL, derived metrics
 - **`/ml`** — xT model, clustering, evaluation notebook, [`EVALUATION.md`](ml/EVALUATION.md)
-- **`/backend`** — FastAPI service; every endpoint reads precomputed tables
+- **`/backend`** — FastAPI service; every endpoint reads precomputed tables. The
+  optional `/ask` endpoint is the one exception that talks to an external API,
+  and it is disabled unless a key is present
 - **`/frontend`** — Vite + React + strict TypeScript, d3-rendered SVG pitches, dark analysis-room theme
 
 ## Run it
@@ -132,27 +138,37 @@ uv run python -m pipeline matchpack --teams "Spain,France" --comp 43-106 --out m
 pixel-identical to the dashboard's print view — one source of truth for
 on-screen and on-paper.
 
-### Optional: the experimental "Ask" tab
+## Optional: the experimental "Ask" tab
 
-An optional Q&A tab answers natural-language questions ("how should we defend
-their corners?") strictly from the dashboard's precomputed tables, citing
-numbers and sample sizes, via the Claude API (`claude-opus-5`). It is **off by
-default** — the core product never depends on an external API (rationale in
-[`ROADMAP.md`](ROADMAP.md)). To switch it on:
+A Q&A tab answers questions in plain English — *"how should we defend their
+corners?"* — strictly from the dashboard's own precomputed tables, via the
+Claude API (`claude-opus-5`). It is **off by default**: the core product never
+depends on an external API (rationale in [`ROADMAP.md`](ROADMAP.md)).
+
+The grounding is the point. The model is handed one bundle assembled from the
+same tables the views read — record, threat zones with their pressure split,
+build-up clusters, corner zones, watchlist — and is instructed to answer only
+from it, cite the numbers and sample sizes that carry the argument, and say
+plainly when the data cannot answer rather than guessing. It gets no outside
+knowledge about teams or players. Treat it as a fast way to interrogate the
+data, not as a source of truth: verify anything load-bearing against the views.
 
 ```bash
 cp .env.example .env      # then paste your key into ANTHROPIC_API_KEY=
+./run.sh                  # restart; the "Ask" tab appears
 ```
 
 Get a key from [console.anthropic.com](https://console.anthropic.com/settings/keys)
-— it is pay-as-you-go and separate from any Claude subscription. Restart the API
-(`uv run uvicorn backend.main:app --port 8000`, or `docker compose up -d app`)
-and the "Ask" tab appears. `.env` is gitignored; `GET /api/health` reports
-`ask_enabled` so you can confirm the key was picked up.
+— pay-as-you-go, separate from any Claude subscription, and a few pence per
+question. `.env` is gitignored, and `GET /api/health` reports `ask_enabled` so
+you can confirm the key was picked up.
 
-Deployment config for Fly.io is in [`fly.toml`](fly.toml) (single app image +
-attached Fly Postgres; the pipeline loads data from your machine through
-`fly proxy` — the serving image never computes anything).
+## Deployment
+
+Config for Fly.io is in [`fly.toml`](fly.toml): a single app image plus an
+attached Fly Postgres. The serving image contains no pipeline or ML code, so the
+database is loaded from your machine through `fly proxy` — the commands are in
+the comments at the top of that file.
 
 ## The ML, briefly
 
@@ -168,6 +184,20 @@ Singh's independently derived public xT grid. The players it rates highest —
 Dembélé, Di María, Musiala at WC 2022; Lamine Yamal, Doku, Nico Williams at
 Euro 2024 — pass the eye test without the model ever seeing a player name. Full write-up: [`ml/EVALUATION.md`](ml/EVALUATION.md),
 reproducible notebook: [`ml/notebooks/xt_evaluation.ipynb`](ml/notebooks/xt_evaluation.ipynb).
+
+**Does defensive context matter?** The 360 freeze-frames let us test whether the
+defensive picture adds signal beyond ball position. Two identical MLPs, same
+match-level split, same budget, on the 88% of on-ball actions a freeze-frame
+covers: position-only scores 0.02375 validation BCE, position plus defender
+context (nearest defender, bodies goal-side, bodies inside the ball-to-goal
+cone) scores **0.02301** — a real 3.1% gain, but a small one. Position dominates.
+A useful by-product: the 360 geometry independently validates StatsBomb's
+`under_pressure` flag, with a median nearest defender of 2.5 pitch units when
+the flag is set versus 6.5 when it isn't. The deployed scorer therefore stays
+position-only — crediting an action needs V at its *end* location, where no
+freeze-frame exists — and the threat map's under-pressure toggle is built on
+that validated flag instead, which has full coverage and needs no inference.
+Run it with `python -m ml.pressure_ablation`.
 
 **Build-up patterns.** Possession sequences reaching the final third are
 described by start zone, progression, directness, tempo, width and lane of
@@ -204,10 +234,17 @@ the same thing whichever competition the toggle shows.
 - **Dark analysis-room theme, print-light report.** The dashboard is built for
   a dark video room; the one thing that leaves the room — the match report —
   prints on white with print CSS.
+- **The AI feature is optional, and grounded.** The Q&A tab is off unless a key
+  is configured, so the product stands on its own; when it is on, it answers only
+  from the precomputed tables and cites its numbers. A chat box that hides
+  provenance and sample size would undo the work the rest of the tool does to
+  surface them.
 - **Honest ML.** The xT model is evaluated against a match-held-out split, an
-  external reference grid, and football intuition — and its limitations
-  (position-only value, small samples, set-piece inheritance) are documented
-  where they matter.
+  external reference grid, and football intuition. Where a richer model was
+  possible it was tested rather than assumed: the 360 defender-context ablation
+  above measured a real but small gain, so the shipped scorer stays position-only
+  and the UI leans on a validated event flag instead. Limitations (position-only
+  value, small samples, set-piece inheritance) are documented where they matter.
 
 ## Data attribution
 
