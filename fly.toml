@@ -1,0 +1,36 @@
+# Fly.io deployment for the Opposition Scouting Dashboard.
+#
+#   fly launch --no-deploy          # creates the app from this file
+#   fly postgres create             # then: fly postgres attach <pg-app>
+#   fly deploy
+#
+# Load the data from your machine (the pipeline never runs in prod):
+#   fly proxy 15432:5432 -a <pg-app>
+#   DATABASE_URL=postgres://... uv run python -m pipeline init-db && \
+#     uv run python -m pipeline ingest && uv run python -m pipeline derive --skip-xt && \
+#     uv run python -m ml.xt_apply && uv run python -m ml.cluster
+
+app = "opposition-scouting"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8000
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"
