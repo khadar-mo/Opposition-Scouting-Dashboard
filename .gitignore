@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+*.egg-info/
+
+# Data (raw StatsBomb JSON is downloaded, not committed)
+data/raw/
+data/*.parquet
+
+# ML artifacts
+ml/artifacts/*.pt
+ml/artifacts/*.npz
+
+# Node
+node_modules/
+frontend/dist/
+
+# Env / editor
+.env
+.DS_Store
+.idea/
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/

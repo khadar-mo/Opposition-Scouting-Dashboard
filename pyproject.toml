@@ -1,0 +1,15 @@
+[tool.uv.workspace]
+members = ["pipeline", "backend", "ml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["ml/notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
