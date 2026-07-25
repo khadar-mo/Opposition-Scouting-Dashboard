@@ -18,6 +18,18 @@ def main() -> None:
     p_derive = sub.add_parser("derive", help="compute derived metric tables")
     p_derive.add_argument("--skip-xt", action="store_true",
                           help="derive everything except xT-dependent tables")
+    p_pack = sub.add_parser(
+        "matchpack", help="batch-render printable opposition reports to PDF"
+    )
+    p_pack.add_argument("--comp", default="43-106",
+                        help="competition as '<competition_id>-<season_id>'")
+    group = p_pack.add_mutually_exclusive_group(required=True)
+    group.add_argument("--teams", help="comma-separated team names")
+    group.add_argument("--all", action="store_true",
+                       help="every team in the competition")
+    p_pack.add_argument("--out", default="matchpacks", help="output directory")
+    p_pack.add_argument("--base-url", default=None,
+                        help="running app URL (default http://localhost:8000)")
 
     args = parser.parse_args()
     if args.command == "download":
@@ -31,6 +43,15 @@ def main() -> None:
     elif args.command == "derive":
         from pipeline import derive
         derive.derive_all(skip_xt=args.skip_xt)
+    elif args.command == "matchpack":
+        from pathlib import Path
+
+        from pipeline import matchpack
+        names = args.teams.split(",") if args.teams else None
+        matchpack.render_pack(
+            args.comp, names, Path(args.out),
+            base_url=args.base_url or matchpack.DEFAULT_BASE_URL,
+        )
 
 
 if __name__ == "__main__":

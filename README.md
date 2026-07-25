@@ -96,6 +96,25 @@ uv run pytest pipeline/tests backend/tests ml/tests
 cd frontend && npm run lint && npm run build && npm test
 ```
 
+## Automation — the Monday-morning routine
+
+Two commands take an analyst from "new data exists" to "printed packs on the
+coaches' desks":
+
+```bash
+# refresh everything (idempotent download, full reload, re-derive, re-credit)
+uv run python -m pipeline download && uv run python -m pipeline ingest && \
+  uv run python -m pipeline derive --skip-xt && uv run python -m ml.xt_apply && \
+  uv run python -m ml.cluster
+
+# render printable PDF reports for any fixture list (or --all for a tournament)
+uv run python -m pipeline matchpack --teams "Spain,France" --comp 43-106 --out matchpacks
+```
+
+`matchpack` drives headless Chrome against the running app, so the PDFs are
+pixel-identical to the dashboard's print view — one source of truth for
+on-screen and on-paper.
+
 Deployment config for Fly.io is in [`fly.toml`](fly.toml) (single app image +
 attached Fly Postgres; the pipeline loads data from your machine through
 `fly proxy` — the serving image never computes anything).

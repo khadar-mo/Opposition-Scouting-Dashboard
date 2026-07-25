@@ -657,7 +657,13 @@ button {
     display: none !important;
   }
 
+  html,
   body,
+  #root,
+  .shell,
+  .main,
+  .view,
+  .report-wrap,
   .report-page {
     background: #fff !important;
     color: #111 !important;
