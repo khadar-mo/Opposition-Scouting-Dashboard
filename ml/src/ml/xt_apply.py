@@ -25,12 +25,13 @@ def _credited_actions(conn: psycopg.Connection) -> pl.DataFrame:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT team_id, player_id, type, x, y, end_x, end_y
-            FROM events
-            WHERE type IN ('Pass', 'Carry')
-              AND outcome IS NULL           -- completed actions only
-              AND x IS NOT NULL AND end_x IS NOT NULL
-              AND period <= 4
+            SELECT m.competition_id, m.season_id, e.team_id, e.player_id,
+                   e.type, e.x, e.y, e.end_x, e.end_y
+            FROM events e JOIN matches m USING (match_id)
+            WHERE e.type IN ('Pass', 'Carry')
+              AND e.outcome IS NULL         -- completed actions only
+              AND e.x IS NOT NULL AND e.end_x IS NOT NULL
+              AND e.period <= 4
             """
         )
         names = [d.name for d in cur.description or []]
@@ -57,12 +58,12 @@ def compute_credits(df: pl.DataFrame) -> pl.DataFrame:
 
 def write_zone_threat(conn: psycopg.Connection, credits: pl.DataFrame) -> None:
     conn.execute("DELETE FROM zone_threat")
-    zones = credits.group_by(["team_id", "zone_x", "zone_y"]).agg(
-        pl.col("xt").sum().round(4), pl.len().alias("n_actions")
-    )
+    zones = credits.group_by(
+        ["competition_id", "season_id", "team_id", "zone_x", "zone_y"]
+    ).agg(pl.col("xt").sum().round(4), pl.len().alias("n_actions"))
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO zone_threat VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO zone_threat VALUES (%s, %s, %s, %s, %s, %s, %s)",
             [tuple(r) for r in zones.iter_rows()],
         )
 
@@ -90,16 +91,19 @@ def _note(row: dict[str, Any], team_rank: int) -> str:
 def write_player_threat(conn: psycopg.Connection, credits: pl.DataFrame) -> None:
     conn.execute("DELETE FROM player_threat")
     minutes = {
-        (r[0], r[1]): r[2]
+        (r[0], r[1], r[2], r[3]): r[4]
         for r in conn.execute(
-            "SELECT p.team_id, pm.player_id, sum(pm.minutes) "
-            "FROM player_minutes pm JOIN players p USING (player_id) "
-            "GROUP BY p.team_id, pm.player_id"
+            "SELECT m.competition_id, m.season_id, p.team_id, pm.player_id, "
+            "sum(pm.minutes) "
+            "FROM player_minutes pm "
+            "JOIN players p USING (player_id) "
+            "JOIN matches m USING (match_id) "
+            "GROUP BY m.competition_id, m.season_id, p.team_id, pm.player_id"
         )
     }
     stats = (
         credits.filter(pl.col("player_id").is_not_null())
-        .group_by(["team_id", "player_id"])
+        .group_by(["competition_id", "season_id", "team_id", "player_id"])
         .agg(
             pl.col("xt").sum().alias("xt_total"),
             pl.col("xt").filter(pl.col("type") == "Carry").sum().alias("xt_carries"),
@@ -113,16 +117,16 @@ def write_player_threat(conn: psycopg.Connection, credits: pl.DataFrame) -> None
         )
     )
     rows = []
-    for _, group in stats.group_by("team_id"):
+    for _, group in stats.group_by(["competition_id", "season_id", "team_id"]):
         enriched = []
         for r in group.iter_rows(named=True):
-            mins = minutes.get((r["team_id"], r["player_id"]))
+            key = (r["competition_id"], r["season_id"], r["team_id"], r["player_id"])
+            mins = minutes.get(key)
             if not mins or mins < 1:
                 continue
             r["minutes"] = mins
             r["xt_per_90"] = r["xt_total"] / mins * 90
             enriched.append(r)
-        enriched.sort(key=lambda r: -r["xt_per_90"])
         ranked = sorted(
             [r for r in enriched if r["minutes"] >= 180], key=lambda r: -r["xt_per_90"]
         )
@@ -134,12 +138,14 @@ def write_player_threat(conn: psycopg.Connection, credits: pl.DataFrame) -> None
                 else None
             )
             rows.append((
-                r["team_id"], r["player_id"], round(r["minutes"], 1), r["n_actions"],
+                r["competition_id"], r["season_id"], r["team_id"], r["player_id"],
+                round(r["minutes"], 1), r["n_actions"],
                 round(r["xt_total"], 4), round(r["xt_per_90"], 4), note,
             ))
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO player_threat VALUES (%s, %s, %s, %s, %s, %s, %s)", rows
+            "INSERT INTO player_threat VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            rows,
         )
 
 

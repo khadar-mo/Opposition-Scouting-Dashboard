@@ -13,8 +13,10 @@ produced, $\Delta V = V(\text{end}) - V(\text{start})$.
 - **Labels**: soft labels in $[0, 1]$ — the summed StatsBomb xG of shots taken by
   the possessing team within the next 5 actions, capped at 1. Training loss is
   binary cross-entropy on these soft labels.
-- **Data**: all 234,637 events / ~187k on-ball actions of the 2022 FIFA World Cup
-  (StatsBomb open data), 64 matches.
+- **Data**: all 422,561 events / ~330k on-ball actions across the ingested
+  tournaments — 2022 FIFA World Cup (64 matches) + UEFA Euro 2024 (51 matches),
+  StatsBomb open data. One model serves both competitions; per-team threat
+  aggregates are computed per tournament.
 - **Split**: **by match** (80/20). Actions from the same match never appear on
   both sides, so validation measures generalisation to unseen games.
 - **Aggregation**: the dashboard sums **positive** ΔV ("threat created").
@@ -25,11 +27,11 @@ produced, $\Delta V = V(\text{end}) - V(\text{start})$.
 
 | Check | Result |
 |---|---|
-| Validation BCE vs base-rate baseline | **0.0252 vs 0.0325** (22.2% better) |
+| Validation BCE vs base-rate baseline | **0.0227 vs 0.0303** (25.0% better) |
 | Threat monotonic towards goal (along y=40) | **100%** of steps increasing |
-| Central vs wide value at x=108 | **0.137 vs 0.011** — central dominates |
-| Own box / halfway / edge of box / penalty spot | 0.00002 / 0.002 / 0.084 / 0.137 |
-| Spearman rank corr. with Karun Singh's public xT grid | **0.986** |
+| Central vs wide value at x=108 | **0.160 vs 0.010** — central dominates |
+| Own box / halfway / penalty spot | 0.00002 / 0.002 / 0.160 |
+| Spearman rank corr. with Karun Singh's public xT grid | **0.985** |
 | Calibration (validation deciles) | observed tracks predicted (see notebook) |
 
 The Karun Singh comparison matters most: his grid was derived from *different
@@ -37,16 +39,16 @@ data* (2017-18 Premier League) with a *different method* (value iteration on a
 12×8 grid). A rank correlation of 0.986 means this model recovers the same
 geography of threat independently.
 
-**Eye test**: the top tournament creators by positive ΔV per 90 (min. 270
-minutes) are Di María, Raphinha, Musiala, De Bruyne, Eriksen, Kimmich,
-Griezmann, Neymar, Messi, Dembélé. No player information was ever given to the
-model — it sees only ball positions.
+**Eye test**: the top creators by positive ΔV per 90 (min. 270 minutes,
+per tournament) are Dembélé, Di María, Musiala, Raphinha, De Bruyne — and from
+Euro 2024, Lamine Yamal, Doku and Nico Williams. No player information was
+ever given to the model — it sees only ball positions.
 
 ## Honest limitations
 
-- **Sample size**: one tournament. Teams have 3–7 matches; per-team maps are
+- **Sample size**: a tournament gives each team 3–7 matches; per-team maps are
   tendencies, not certainties. The UI shows action counts wherever threat is
-  aggregated.
+  aggregated, and never mixes tournaments in one aggregate.
 - **Position-only value**: no pressure, game state, or player-quality context.
   A 2-0-up counter and a desperate 89th-minute possession look the same.
 - **Set-piece inheritance**: corner/free-kick actions inherit open-play values;

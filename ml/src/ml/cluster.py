@@ -30,20 +30,20 @@ NUMERIC_FEATURES = ["start_x", "start_y", "progression", "directness", "tempo",
 def load_sequences(conn: psycopg.Connection) -> list[dict[str, Any]]:
     rows = conn.execute(
         """
-        SELECT sequence_id, team_id, features, ended_in_shot, coalesce(xg,0) AS xg,
-               n_events
-        FROM sequences
-        WHERE play_pattern = ANY(%s)
-          AND (features->>'entered_final_third')::int = 1
-          AND (features->>'n_actions')::int >= %s
+        SELECT s.sequence_id, m.competition_id, m.season_id, s.team_id, s.features,
+               s.ended_in_shot, coalesce(s.xg,0) AS xg, s.n_events
+        FROM sequences s JOIN matches m USING (match_id)
+        WHERE s.play_pattern = ANY(%s)
+          AND (s.features->>'entered_final_third')::int = 1
+          AND (s.features->>'n_actions')::int >= %s
         """,
         (list(QUALIFYING_PATTERNS), MIN_ACTIONS),
     ).fetchall()
     out = []
-    for sid, team_id, feats, shot, xg, n_events in rows:
+    for sid, comp_id, season_id, team_id, feats, shot, xg, n_events in rows:
         f = feats if isinstance(feats, dict) else json.loads(feats)
-        f.update(sequence_id=sid, team_id=team_id, ended_in_shot=shot, xg=xg,
-                 n_events=n_events)
+        f.update(sequence_id=sid, competition_id=comp_id, season_id=season_id,
+                 team_id=team_id, ended_in_shot=shot, xg=xg, n_events=n_events)
         out.append(f)
     return out
 
@@ -121,11 +121,17 @@ def run() -> None:
             )
             print(f"cluster {cid} ({len(members)}): {label}")
 
-        # Per-team shares + representative sequences (shots first, then xG).
-        team_ids = {s["team_id"] for s in seqs}
-        for team_id in team_ids:
-            own = [(s, c) for s, c in zip(seqs, labels, strict=True)
-                   if s["team_id"] == team_id]
+        # Per-team-per-tournament shares + representative sequences
+        # (shots first, then xG). Clusters themselves stay global so a
+        # pattern label means the same thing in either competition.
+        team_keys = {(s["competition_id"], s["season_id"], s["team_id"]) for s in seqs}
+        for comp_id, season_id, team_id in team_keys:
+            own = [
+                (s, c)
+                for s, c in zip(seqs, labels, strict=True)
+                if (s["competition_id"], s["season_id"], s["team_id"])
+                == (comp_id, season_id, team_id)
+            ]
             n_team = len(own)
             for cid in range(K):
                 members = [s for s, c in own if c == cid]
@@ -136,8 +142,9 @@ def run() -> None:
                 )
                 reps = [int(s["sequence_id"]) for s in members[:3]]
                 conn.execute(
-                    "INSERT INTO team_patterns VALUES (%s, %s, %s, %s, %s)",
-                    (team_id, cid, len(members), len(members) / n_team, reps),
+                    "INSERT INTO team_patterns VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (comp_id, season_id, team_id, cid,
+                     len(members), len(members) / n_team, reps),
                 )
         conn.commit()
     print("clusters written")

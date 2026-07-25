@@ -15,8 +15,9 @@ code = nbf.v4.new_code_cell
 cells = [
     md(
         "# Expected Threat (xT) model — evaluation\n\n"
-        "The model is a small MLP $V(x, y)$ trained on all on-ball actions at "
-        "the 2022 World Cup. The soft label for an action is the xG its "
+        "The model is a small MLP $V(x, y)$ trained on all on-ball actions "
+        "across the ingested tournaments (2022 World Cup + Euro 2024). "
+        "The soft label for an action is the xG its "
         "possession produces within the next 5 on-ball actions (capped at 1), "
         "so $V$ estimates *how likely a shot is coming, and how good a shot, "
         "from this position*. Passes and carries are credited with "
@@ -131,7 +132,7 @@ cells = [
     ),
     md(
         "## 5. Eye test: who does the model rate?\n"
-        "Summed positive ΔV per 90 across the tournament (minimum 270 minutes)."
+        "Summed positive ΔV per 90, per tournament (minimum 270 minutes)."
     ),
     code(
         "import psycopg\n"
@@ -151,7 +152,7 @@ cells = [
         "- The model beats the base-rate baseline by a clear margin on unseen "
         "matches and produces a smooth, monotonic threat surface.\n"
         "- It agrees strongly with an independently derived public xT grid.\n"
-        "- The players it rates highest are exactly the tournament's "
+        "- The players it rates highest are exactly each tournament's "
         "recognised creators — no labels about players were ever provided.\n\n"
         "**Known limitations** (stated in the UI where relevant): one "
         "tournament is a small sample per team (3–7 matches); V depends on "
