@@ -26,6 +26,7 @@ class Dataset:
     features: np.ndarray  # (n, 4): x, y, dist_to_goal, angle_to_goal (normalised)
     labels: np.ndarray  # (n,) soft labels in [0, 1]
     match_ids: np.ndarray  # (n,) for match-level splits
+    event_ids: np.ndarray | None = None  # (n,) present when actions carry event_id
 
 
 def featurize(x: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -44,7 +45,7 @@ def load_actions() -> pl.DataFrame:
         cur.execute(
             """
             SELECT match_id, possession, team_id, idx, type, x, y, end_x, end_y,
-                   coalesce(xg, 0) AS xg, outcome
+                   coalesce(xg, 0) AS xg, outcome, event_id::text AS event_id
             FROM events
             WHERE type = ANY(%s) AND x IS NOT NULL
             ORDER BY match_id, idx
@@ -59,15 +60,18 @@ def load_actions() -> pl.DataFrame:
 def build_dataset(actions: pl.DataFrame, k: int = K_ACTIONS) -> Dataset:
     """Soft label per action: capped sum of team xG over the next k actions
     of the same possession (inclusive of the action itself)."""
+    has_event_ids = "event_id" in actions.columns
     feats: list[np.ndarray] = []
     labels: list[float] = []
     matches: list[int] = []
+    event_ids: list[str] = []
     for (_, _, _), group in actions.group_by(
         ["match_id", "possession", "team_id"], maintain_order=True
     ):
         xs = group["x"].to_numpy()
         ys = group["y"].to_numpy()
         xgs = group["xg"].to_numpy()
+        eids = group["event_id"].to_list() if has_event_ids else None
         mid = int(group["match_id"][0])
         n = len(xs)
         # Rolling forward-window sum of xG over the next k actions.
@@ -77,11 +81,14 @@ def build_dataset(actions: pl.DataFrame, k: int = K_ACTIONS) -> Dataset:
             feats.append(np.array([xs[i], ys[i]]))
             labels.append(label)
             matches.append(mid)
+            if eids is not None:
+                event_ids.append(eids[i])
     xy = np.array(feats)
     return Dataset(
         features=featurize(xy[:, 0], xy[:, 1]),
         labels=np.array(labels, dtype=np.float32),
         match_ids=np.array(matches),
+        event_ids=np.array(event_ids) if has_event_ids else None,
     )
 
 
@@ -97,5 +104,8 @@ def split_by_match(
     val_matches = set(matches[:n_val].tolist())
     val_mask = np.isin(ds.match_ids, list(val_matches))
     def subset(mask: np.ndarray) -> Dataset:
-        return Dataset(ds.features[mask], ds.labels[mask], ds.match_ids[mask])
+        return Dataset(
+            ds.features[mask], ds.labels[mask], ds.match_ids[mask],
+            ds.event_ids[mask] if ds.event_ids is not None else None,
+        )
     return subset(~val_mask), subset(val_mask)

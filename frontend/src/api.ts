@@ -60,6 +60,8 @@ export interface ThreatZone {
   zone_y: number
   xt: number
   n_actions: number
+  xt_pressured: number
+  n_pressured: number
 }
 
 export interface PassNode {

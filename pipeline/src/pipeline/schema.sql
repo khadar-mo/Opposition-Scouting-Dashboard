@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS zone_threat (
     zone_y     INT NOT NULL,
     xt         DOUBLE PRECISION NOT NULL,
     n_actions  INT NOT NULL,
+    xt_pressured DOUBLE PRECISION NOT NULL DEFAULT 0,
+    n_pressured  INT NOT NULL DEFAULT 0,
     PRIMARY KEY (competition_id, season_id, team_id, zone_x, zone_y)
 );
 

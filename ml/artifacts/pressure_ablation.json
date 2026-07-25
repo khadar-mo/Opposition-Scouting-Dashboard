@@ -1,0 +1,10 @@
+{
+  "n_actions_covered": 198354,
+  "coverage": 0.876741513437058,
+  "val_bce_baseline": 0.03170799526860858,
+  "val_bce_position_only": 0.023750895634293556,
+  "val_bce_with_pressure": 0.023014454171061516,
+  "improvement_over_position_only": 0.031006892311408407,
+  "median_nearest_def_flagged": 2.4876662618972505,
+  "median_nearest_def_unflagged": 6.523738328110259
+}

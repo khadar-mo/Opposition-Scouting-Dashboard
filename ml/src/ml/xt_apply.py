@@ -26,7 +26,7 @@ def _credited_actions(conn: psycopg.Connection) -> pl.DataFrame:
         cur.execute(
             """
             SELECT m.competition_id, m.season_id, e.team_id, e.player_id,
-                   e.type, e.x, e.y, e.end_x, e.end_y
+                   e.type, e.x, e.y, e.end_x, e.end_y, e.under_pressure
             FROM events e JOIN matches m USING (match_id)
             WHERE e.type IN ('Pass', 'Carry')
               AND e.outcome IS NULL         -- completed actions only
@@ -60,10 +60,16 @@ def write_zone_threat(conn: psycopg.Connection, credits: pl.DataFrame) -> None:
     conn.execute("DELETE FROM zone_threat")
     zones = credits.group_by(
         ["competition_id", "season_id", "team_id", "zone_x", "zone_y"]
-    ).agg(pl.col("xt").sum().round(4), pl.len().alias("n_actions"))
+    ).agg(
+        pl.col("xt").sum().round(4),
+        pl.len().alias("n_actions"),
+        pl.col("xt").filter(pl.col("under_pressure")).sum().round(4)
+        .alias("xt_pressured"),
+        pl.col("under_pressure").sum().alias("n_pressured"),
+    )
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO zone_threat VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO zone_threat VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             [tuple(r) for r in zones.iter_rows()],
         )
 

@@ -44,6 +44,38 @@ per tournament) are Dembélé, Di María, Musiala, Raphinha, De Bruyne — and f
 Euro 2024, Lamine Yamal, Doku and Nico Williams. No player information was
 ever given to the model — it sees only ball positions.
 
+## Does defensive context matter? A 360 ablation
+
+The 360 freeze-frames let us test whether the *defensive picture* at the moment
+of an action carries signal beyond ball position. For every covered on-ball
+action (88% of them — 198,354 actions) we compute three features from opponent
+positions: nearest-defender distance, defenders goal-side of the ball, and
+defenders inside the ball→goalposts cone. Then two identical MLPs, identical
+match-level split, identical budget, on the identical subset:
+
+| Model | Validation BCE |
+|---|---|
+| Base rate | 0.0317 |
+| Position only (x, y) | 0.02375 |
+| Position + defender context | **0.02301** (3.1% better) |
+
+**Interpretation**: position dominates — where the ball is explains most of the
+threat — but defensive context adds a small, real improvement. That is exactly
+what football intuition predicts: the same zone is worth less against a set
+block than in transition.
+
+**A free validation of StatsBomb's `under_pressure` flag**: the median
+360-measured nearest-defender distance is **2.5 pitch units when the flag is
+set vs 6.5 when it is not**. Two independent data channels agree.
+
+**Product decision**: the deployed scorer stays position-only. Crediting an
+action needs V at its *end* location, where no freeze-frame exists (the frame
+belongs to the action's start), so a context model would silently degrade to
+position-only for half of every ΔV anyway. Instead, the dashboard uses the
+(now independently validated) `under_pressure` flag — full coverage, zero
+inference — to split each team's threat map into all origins vs
+pressure-resistant origins. Run the ablation: `python -m ml.pressure_ablation`.
+
 ## Honest limitations
 
 - **Sample size**: a tournament gives each team 3–7 matches; per-team maps are

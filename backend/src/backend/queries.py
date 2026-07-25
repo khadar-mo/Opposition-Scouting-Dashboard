@@ -93,7 +93,8 @@ def team_profile(
 
 def threat_map(team_id: int, competition_id: int, season_id: int) -> list[dict[str, Any]]:
     return fetch_all(
-        "SELECT zone_x, zone_y, xt::float, n_actions FROM zone_threat "
+        "SELECT zone_x, zone_y, xt::float, n_actions, "
+        "xt_pressured::float, n_pressured FROM zone_threat "
         "WHERE team_id = %s AND competition_id = %s AND season_id = %s "
         "ORDER BY zone_x, zone_y",
         (team_id, competition_id, season_id),
