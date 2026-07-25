@@ -1,11 +1,13 @@
 # Opposition Scouting Dashboard
 
-An end-to-end tool for match analysts: pick an opponent, get a data-driven tactical
-profile in seconds — where they generate danger, how they build up, who to watch,
-and what they do from corners. Built on
-[StatsBomb open data](https://github.com/statsbomb/open-data) for the 2022 FIFA
-World Cup (64 matches, all 32 teams, including 360 freeze-frames), with an
-expected-threat model (PyTorch) underneath.
+An end-to-end tool for match analysts: pick an opponent and a tournament, get a
+data-driven tactical profile in seconds — where they generate danger, how they
+build up, who to watch, and what they do from corners. Built on
+[StatsBomb open data](https://github.com/statsbomb/open-data) for the **2022 FIFA
+World Cup** and **UEFA Euro 2024** (115 matches, 48 national teams, including 360
+freeze-frames), switchable from a single toggle, with an expected-threat model
+(PyTorch) underneath. Adding another competition is a one-line config change plus
+a pipeline re-run.
 
 **The persona behind every decision:** an analyst preparing on a Tuesday for a
 Saturday fixture. Fast loads, plain language, sensible defaults, minimal clicks
@@ -54,7 +56,7 @@ Prereqs: Docker, [uv](https://docs.astral.sh/uv/), Node 22+.
 # 1. Postgres + (later) the app
 docker compose up -d db
 
-# 2. Data: download → ingest → derive   (~630 MB of JSON, a few minutes)
+# 2. Data: download → ingest → derive   (~1.1 GB of JSON, a few minutes)
 uv sync --all-packages
 uv run python -m pipeline download
 uv run python -m pipeline init-db
@@ -94,12 +96,13 @@ attached Fly Postgres; the pipeline loads data from your machine through
 weighted shot value (xG) a possession produces within its next 5 actions from a
 given ball position. Every completed pass and carry is credited with
 ΔV = V(end) − V(start); the dashboard aggregates positive ΔV ("threat created")
-by zone and by player. Trained with a **match-level** train/validation split.
-Validation: 22% better BCE than the base-rate baseline, a perfectly monotonic
-threat surface toward goal, and **Spearman ρ = 0.986** against Karun Singh's
-independently derived public xT grid. The players it rates highest at WC 2022 —
-Di María, Raphinha, Musiala, De Bruyne — pass the eye test without the model
-ever seeing a player name. Full write-up: [`ml/EVALUATION.md`](ml/EVALUATION.md),
+by zone and by player, always per tournament. One model is trained across both
+tournaments (~330k on-ball actions) with a **match-level** train/validation
+split. Validation: 25% better BCE than the base-rate baseline, a perfectly
+monotonic threat surface toward goal, and **Spearman ρ = 0.985** against Karun
+Singh's independently derived public xT grid. The players it rates highest —
+Dembélé, Di María, Musiala at WC 2022; Lamine Yamal, Doku, Nico Williams at
+Euro 2024 — pass the eye test without the model ever seeing a player name. Full write-up: [`ml/EVALUATION.md`](ml/EVALUATION.md),
 reproducible notebook: [`ml/notebooks/xt_evaluation.ipynb`](ml/notebooks/xt_evaluation.ipynb).
 
 **Build-up patterns.** Possession sequences reaching the final third are
@@ -107,10 +110,17 @@ described by start zone, progression, directness, tempo, width and lane of
 final-third entry, then clustered with k-means (k = 8, one global model so
 labels are comparable across teams). Each team's profile shows its top clusters
 with plain-language descriptions ("Deep build-up, entering via the right
-half-space — 22% of sequences") and real replayable example sequences.
+half-space — 22% of sequences") and real replayable example sequences. The
+clustering is one global model over both tournaments, so a pattern label means
+the same thing whichever competition the toggle shows.
 
 ## Design decisions (analyst-first)
 
+- **Tournaments never mix.** Per-team aggregates carry a competition/season
+  key end to end (schema → API → URL), so Spain's Euro 2024 profile can never
+  bleed into their World Cup one; a team absent from the selected tournament is
+  a 404, not an empty chart. (WC 2026 isn't in the open data — when a new
+  tournament lands, it's one line in `pipeline/config.py`.)
 - **Everything is precomputed at ingestion.** An analyst opening the tool 20
   minutes before a meeting cannot wait for on-demand computation. The API only
   ever reads indexed, derived tables; the heaviest per-request work is fetching
