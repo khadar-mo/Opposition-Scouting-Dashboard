@@ -36,7 +36,7 @@ produced, $\Delta V = V(\text{end}) - V(\text{start})$.
 
 The Karun Singh comparison matters most: his grid was derived from *different
 data* (2017-18 Premier League) with a *different method* (value iteration on a
-12×8 grid). A rank correlation of 0.986 means this model recovers the same
+12×8 grid). A rank correlation of 0.985 means this model recovers the same
 geography of threat independently.
 
 **Eye test**: the top creators by positive ΔV per 90 (min. 270 minutes,
