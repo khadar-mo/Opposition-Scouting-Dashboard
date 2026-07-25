@@ -173,7 +173,30 @@ function qs(comp: CompKey, extra: Record<string, string> = {}): string {
   return `?${params.toString()}`
 }
 
+export interface Health {
+  status: string
+  ask_enabled: boolean
+}
+
+export interface AskAnswer {
+  answer: string
+  model: string
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`)
+  return res.json() as Promise<T>
+}
+
 export const api = {
+  health: () => get<Health>('/api/health'),
+  ask: (id: number, comp: CompKey, question: string) =>
+    post<AskAnswer>(`/api/teams/${id}/ask${qs(comp)}`, { question }),
   competitions: () => get<Competition[]>('/api/competitions'),
   teams: (comp: CompKey) => get<Team[]>(`/api/teams${qs(comp)}`),
   profile: (id: number, comp: CompKey) =>

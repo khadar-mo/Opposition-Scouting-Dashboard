@@ -13,7 +13,9 @@ from typing import Annotated, Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
+from backend import ask as ask_module
 from backend import queries
 
 app = FastAPI(title="Opposition Scouting API", version="0.2.0")
@@ -34,8 +36,8 @@ DEFAULT_SEASON = 106  # 2022
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, str | bool]:
+    return {"status": "ok", "ask_enabled": ask_module.is_enabled()}
 
 
 @app.get("/api/competitions")
@@ -117,6 +119,27 @@ def report(
     season_id: Season = DEFAULT_SEASON,
 ) -> dict[str, Any]:
     result = queries.report(team_id, competition_id, season_id)
+    if result is None:
+        raise HTTPException(404, "unknown team in this competition")
+    return result
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+
+
+@app.post("/api/teams/{team_id}/ask")
+def ask(
+    team_id: int,
+    body: AskRequest,
+    competition_id: Comp = DEFAULT_COMP,
+    season_id: Season = DEFAULT_SEASON,
+) -> dict[str, Any]:
+    if not ask_module.is_enabled():
+        raise HTTPException(
+            503, "Q&A is disabled: the server has no ANTHROPIC_API_KEY configured"
+        )
+    result = ask_module.ask(team_id, competition_id, season_id, body.question)
     if result is None:
         raise HTTPException(404, "unknown team in this competition")
     return result

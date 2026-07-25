@@ -7,6 +7,7 @@ import { Patterns } from './views/Patterns'
 import { SetPieces } from './views/SetPieces'
 import { Watchlist } from './views/Watchlist'
 import { Report } from './views/Report'
+import { Ask } from './views/Ask'
 
 const TABS = [
   'Threat map',
@@ -15,6 +16,7 @@ const TABS = [
   'Set pieces',
   'Watchlist',
   'Match report',
+  'Ask',
 ] as const
 type Tab = (typeof TABS)[number]
 
@@ -64,6 +66,9 @@ export default function App() {
     queryKey: ['competitions'],
     queryFn: api.competitions,
   })
+  const healthQuery = useQuery({ queryKey: ['health'], queryFn: api.health })
+  const askEnabled = healthQuery.data?.ask_enabled ?? false
+  const visibleTabs = askEnabled ? TABS : TABS.filter((t) => t !== 'Ask')
   const teamsQuery = useQuery({
     queryKey: ['teams', comp],
     queryFn: () => api.teams(comp),
@@ -184,7 +189,7 @@ export default function App() {
               )}
             </header>
             <nav className="tabs">
-              {TABS.map((t) => (
+              {visibleTabs.map((t) => (
                 <button
                   key={t}
                   className={`tab${t === tab ? ' active' : ''}`}
@@ -211,6 +216,9 @@ export default function App() {
                 <Watchlist teamId={selected.team_id} teamName={selected.name} comp={comp} />
               )}
               {tab === 'Match report' && <Report teamId={selected.team_id} comp={comp} />}
+              {tab === 'Ask' && askEnabled && (
+                <Ask teamId={selected.team_id} teamName={selected.name} comp={comp} />
+              )}
             </section>
           </>
         )}

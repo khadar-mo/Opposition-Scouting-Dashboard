@@ -115,6 +115,14 @@ uv run python -m pipeline matchpack --teams "Spain,France" --comp 43-106 --out m
 pixel-identical to the dashboard's print view — one source of truth for
 on-screen and on-paper.
 
+**Experimental — opponent Q&A.** An optional "Ask" tab answers natural-language
+questions ("how should we defend their corners?") strictly from the dashboard's
+precomputed tables, citing numbers and sample sizes, via the Claude API
+(`claude-opus-5`, with server-side refusal fallbacks enabled). It is **off by
+default** and appears only when the server has an `ANTHROPIC_API_KEY` — the core
+product never depends on an external API (rationale in
+[`ROADMAP.md`](ROADMAP.md)).
+
 Deployment config for Fly.io is in [`fly.toml`](fly.toml) (single app image +
 attached Fly Postgres; the pipeline loads data from your machine through
 `fly proxy` — the serving image never computes anything).

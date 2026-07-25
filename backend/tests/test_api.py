@@ -5,7 +5,9 @@ pytestmark = pytest.mark.integration
 
 
 def test_health(client: TestClient) -> None:
-    assert client.get("/api/health").json() == {"status": "ok"}
+    body = client.get("/api/health").json()
+    assert body["status"] == "ok"
+    assert isinstance(body["ask_enabled"], bool)
 
 
 def _team_ids(client: TestClient) -> dict[str, int]:

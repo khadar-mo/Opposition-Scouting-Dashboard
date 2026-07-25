@@ -743,3 +743,37 @@ button {
   padding: 3px 10px;
   white-space: nowrap;
 }
+
+/* ---------- ask (experimental) ---------- */
+
+.ask-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ask-input {
+  flex: 1;
+  margin: 0;
+  width: auto;
+}
+
+.ask-answer {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ask-answer p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ask-meta {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}

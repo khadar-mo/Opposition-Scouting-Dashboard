@@ -49,11 +49,12 @@ make next.
 1. **Pressure-aware threat (research)** — the 360 freeze-frames support
    defender-context features (defenders between ball and goal, nearest-defender
    distance). Ablate against the position-only model; ship only what survives
-   scrutiny. Status: in progress, see `ml/EVALUATION.md`.
+   scrutiny. Status: **done** — see `ml/EVALUATION.md` and the threat map's 'Under pressure' toggle.
 2. **Match-pack automation** — one command that renders the printable report
-   for a full fixture list; the "Monday morning routine". Status: in progress.
+   for a full fixture list; the "Monday morning routine". Status: **done** — `python -m pipeline matchpack`.
 3. **Opponent Q&A (experiment, off by default)** — natural-language questions
    answered strictly from the precomputed tables, with numbers cited, behind an
    environment flag so the core product never depends on an external API.
+   Status: **done** — the "Ask" tab, visible only when `ANTHROPIC_API_KEY` is set.
 4. **Club phase model + destination threat maps** — pending answers to
    questions 1 and 4 above.
