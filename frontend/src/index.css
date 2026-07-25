@@ -772,6 +772,10 @@ button {
   white-space: pre-wrap;
 }
 
+.ask-answer p + p {
+  margin-top: 11px;
+}
+
 .ask-meta {
   margin-top: 10px;
   color: var(--muted);

@@ -24,6 +24,8 @@ more, and what was deliberately cut — is recorded in [`ROADMAP.md`](ROADMAP.md
 | *Pass network — phase-filterable* | *Set pieces — deliveries & first contacts* |
 | ![Watchlist](docs/screenshots/watchlist.png) | ![Match report](docs/screenshots/match-report.png) |
 | *Watchlist — top threat creators, with generated notes* | *Match report — printable one-pager* |
+| ![Ask](docs/screenshots/ask.png) | |
+| *Ask (optional) — grounded in the tables above, and candid about what the data can't tell you* | |
 
 ## What it does
 
