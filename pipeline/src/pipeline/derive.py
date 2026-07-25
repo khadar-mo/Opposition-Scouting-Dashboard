@@ -42,12 +42,16 @@ def lane_of(y: float) -> int:
 
 def _events_frame(conn: psycopg.Connection) -> pl.DataFrame:
     cols = (
-        "event_id::text, match_id, idx, period, timestamp_s, minute, possession, "
-        "possession_team_id, play_pattern, team_id, player_id, position, type, "
-        "x, y, end_x, end_y, outcome, recipient_id, xg"
+        "e.event_id::text, e.match_id, m.competition_id, m.season_id, e.idx, "
+        "e.period, e.timestamp_s, e.minute, e.possession, e.possession_team_id, "
+        "e.play_pattern, e.team_id, e.player_id, e.position, e.type, "
+        "e.x, e.y, e.end_x, e.end_y, e.outcome, e.recipient_id, e.xg"
     )
     with conn.cursor() as cur:
-        cur.execute(f"SELECT {cols} FROM events ORDER BY match_id, idx")
+        cur.execute(
+            f"SELECT {cols} FROM events e JOIN matches m USING (match_id) "
+            "ORDER BY e.match_id, e.idx"
+        )
         names = [d.name for d in cur.description or []]
         names[0] = "event_id"
         rows = cur.fetchall()
@@ -137,28 +141,29 @@ def derive_pass_network(conn: psycopg.Connection, events: pl.DataFrame) -> None:
         pl.col("play_pattern").replace_strict(PHASE_MAP, default="other").alias("phase")
     )
     both = pl.concat([passes, passes.with_columns(pl.lit("all").alias("phase"))])
+    comp_cols = ["competition_id", "season_id"]
 
-    edges = both.group_by(["team_id", "phase", "player_id", "recipient_id"]).len()
+    edges = both.group_by([*comp_cols, "team_id", "phase", "player_id", "recipient_id"]).len()
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO pass_edges VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO pass_edges VALUES (%s, %s, %s, %s, %s, %s, %s)",
             [tuple(r) for r in edges.iter_rows()],
         )
 
     # Node position = average location of a player's on-ball involvements
     # (pass origins + receipt locations) in that phase.
-    origins = both.select("team_id", "phase", pl.col("player_id"), "x", "y")
+    origins = both.select(*comp_cols, "team_id", "phase", pl.col("player_id"), "x", "y")
     receipts = both.select(
-        "team_id", "phase", pl.col("recipient_id").alias("player_id"),
+        *comp_cols, "team_id", "phase", pl.col("recipient_id").alias("player_id"),
         pl.col("end_x").alias("x"), pl.col("end_y").alias("y"),
     )
     touches = pl.concat([origins, receipts]).drop_nulls()
-    nodes = touches.group_by(["team_id", "phase", "player_id"]).agg(
+    nodes = touches.group_by([*comp_cols, "team_id", "phase", "player_id"]).agg(
         pl.col("x").mean().round(2), pl.col("y").mean().round(2), pl.len().alias("n")
     )
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO pass_nodes VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO pass_nodes VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             [tuple(r) for r in nodes.iter_rows()],
         )
 

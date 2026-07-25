@@ -11,8 +11,9 @@ from typing import Any
 import polars as pl
 import psycopg
 
-from pipeline.config import COMPETITION_ID, DATA_DIR, SEASON_ID
+from pipeline.config import COMPETITIONS, DATA_DIR
 from pipeline.db import connect
+from pipeline.download import matches_path
 
 # Keys under which StatsBomb nests the type-specific event payload.
 _PAYLOAD_KEYS = {
@@ -96,17 +97,20 @@ def _copy_frame(conn: psycopg.Connection, table: str, columns: list[str], df: pl
             copy.write_row(row)
 
 
-def _ingest_metadata(conn: psycopg.Connection, matches: list[dict[str, Any]]) -> None:
-    comp = matches[0]
-    conn.execute(
-        "INSERT INTO competitions VALUES (%s, %s, %s, %s)",
-        (COMPETITION_ID, SEASON_ID, comp["competition"]["competition_name"],
-         comp["season"]["season_name"]),
-    )
-    teams = {}
-    for m in matches:
-        teams[m["home_team"]["home_team_id"]] = m["home_team"]["home_team_name"]
-        teams[m["away_team"]["away_team_id"]] = m["away_team"]["away_team_name"]
+def _ingest_metadata(
+    conn: psycopg.Connection, seasons: list[tuple[int, int, list[dict[str, Any]]]]
+) -> None:
+    teams: dict[int, str] = {}
+    for comp_id, season_id, matches in seasons:
+        comp = matches[0]
+        conn.execute(
+            "INSERT INTO competitions VALUES (%s, %s, %s, %s)",
+            (comp_id, season_id, comp["competition"]["competition_name"],
+             comp["season"]["season_name"]),
+        )
+        for m in matches:
+            teams[m["home_team"]["home_team_id"]] = m["home_team"]["home_team_name"]
+            teams[m["away_team"]["away_team_id"]] = m["away_team"]["away_team_name"]
     with conn.cursor() as cur:
         cur.executemany("INSERT INTO teams VALUES (%s, %s)", list(teams.items()))
         cur.executemany(
@@ -114,9 +118,10 @@ def _ingest_metadata(conn: psycopg.Connection, matches: list[dict[str, Any]]) ->
                                     stage, home_team_id, away_team_id, home_score, away_score)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             [
-                (m["match_id"], COMPETITION_ID, SEASON_ID, m["match_date"],
+                (m["match_id"], comp_id, season_id, m["match_date"],
                  m["competition_stage"]["name"], m["home_team"]["home_team_id"],
                  m["away_team"]["away_team_id"], m["home_score"], m["away_score"])
+                for comp_id, season_id, matches in seasons
                 for m in matches
             ],
         )
@@ -173,11 +178,14 @@ def _ingest_freeze_frames(conn: psycopg.Connection, match_id: int) -> int:
 
 
 def ingest_all(limit: int | None = None) -> None:
-    matches = json.loads((DATA_DIR / "matches.json").read_text())
-    matches.sort(key=lambda m: m["match_id"])
-    if limit:
-        matches = matches[:limit]
-    match_ids = [m["match_id"] for m in matches]
+    seasons: list[tuple[int, int, list[dict[str, Any]]]] = []
+    for comp_id, season_id in COMPETITIONS:
+        matches = json.loads(matches_path(comp_id, season_id).read_text())
+        matches.sort(key=lambda m: m["match_id"])
+        if limit:
+            matches = matches[:limit]
+        seasons.append((comp_id, season_id, matches))
+    match_ids = [m["match_id"] for _, _, ms in seasons for m in ms]
 
     with connect() as conn:
         conn.execute(
@@ -185,7 +193,7 @@ def ingest_all(limit: int | None = None) -> None:
             "sequences, zone_threat, pass_edges, pass_nodes, player_threat, "
             "set_pieces, pattern_clusters, team_patterns CASCADE"
         )
-        _ingest_metadata(conn, matches)
+        _ingest_metadata(conn, seasons)
         _ingest_players(conn, match_ids)
         total_events = 0
         for i, mid in enumerate(match_ids, 1):

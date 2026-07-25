@@ -3,9 +3,11 @@
 import os
 from pathlib import Path
 
-# FIFA World Cup 2022 in StatsBomb open data
-COMPETITION_ID = 43
-SEASON_ID = 106
+# Competitions ingested into the dashboard, as (competition_id, season_id).
+COMPETITIONS: list[tuple[int, int]] = [
+    (43, 106),  # FIFA World Cup 2022
+    (55, 282),  # UEFA Euro 2024
+]
 
 OPEN_DATA_BASE = "https://raw.githubusercontent.com/statsbomb/open-data/master/data"
 

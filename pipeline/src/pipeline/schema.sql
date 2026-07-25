@@ -109,38 +109,49 @@ CREATE TABLE IF NOT EXISTS sequences (
 );
 CREATE INDEX IF NOT EXISTS idx_sequences_team ON sequences(team_id, cluster_id);
 
+-- Per-team aggregates are competition-scoped: the same national team appears
+-- in multiple tournaments and its profiles must never mix.
+
 -- xT generated per pitch zone per team (12x8 grid on the 120x80 pitch).
 CREATE TABLE IF NOT EXISTS zone_threat (
+    competition_id INT NOT NULL,
+    season_id      INT NOT NULL,
     team_id    INT NOT NULL REFERENCES teams(team_id),
     zone_x     INT NOT NULL,
     zone_y     INT NOT NULL,
     xt         DOUBLE PRECISION NOT NULL,
     n_actions  INT NOT NULL,
-    PRIMARY KEY (team_id, zone_x, zone_y)
+    PRIMARY KEY (competition_id, season_id, team_id, zone_x, zone_y)
 );
 
 -- Aggregated pass-network edges and nodes per team and phase of play.
 CREATE TABLE IF NOT EXISTS pass_edges (
+    competition_id INT NOT NULL,
+    season_id      INT NOT NULL,
     team_id      INT NOT NULL REFERENCES teams(team_id),
     phase        TEXT NOT NULL,
     passer_id    INT NOT NULL,
     receiver_id  INT NOT NULL,
     n_passes     INT NOT NULL,
-    PRIMARY KEY (team_id, phase, passer_id, receiver_id)
+    PRIMARY KEY (competition_id, season_id, team_id, phase, passer_id, receiver_id)
 );
 
 CREATE TABLE IF NOT EXISTS pass_nodes (
+    competition_id INT NOT NULL,
+    season_id      INT NOT NULL,
     team_id    INT NOT NULL REFERENCES teams(team_id),
     phase      TEXT NOT NULL,
     player_id  INT NOT NULL REFERENCES players(player_id),
     avg_x      DOUBLE PRECISION NOT NULL,
     avg_y      DOUBLE PRECISION NOT NULL,
     n_touches  INT NOT NULL,
-    PRIMARY KEY (team_id, phase, player_id)
+    PRIMARY KEY (competition_id, season_id, team_id, phase, player_id)
 );
 
 -- Per-player threat contribution (filled after the xT model runs).
 CREATE TABLE IF NOT EXISTS player_threat (
+    competition_id INT NOT NULL,
+    season_id      INT NOT NULL,
     team_id     INT NOT NULL REFERENCES teams(team_id),
     player_id   INT NOT NULL REFERENCES players(player_id),
     minutes     DOUBLE PRECISION NOT NULL,
@@ -148,7 +159,7 @@ CREATE TABLE IF NOT EXISTS player_threat (
     xt_total    DOUBLE PRECISION NOT NULL,
     xt_per_90   DOUBLE PRECISION NOT NULL,
     note        TEXT,
-    PRIMARY KEY (team_id, player_id)
+    PRIMARY KEY (competition_id, season_id, team_id, player_id)
 );
 
 -- Set pieces (corners first): delivery location + first contact from 360 data.
@@ -178,10 +189,12 @@ CREATE TABLE IF NOT EXISTS pattern_clusters (
 );
 
 CREATE TABLE IF NOT EXISTS team_patterns (
+    competition_id              INT NOT NULL,
+    season_id                   INT NOT NULL,
     team_id                     INT NOT NULL REFERENCES teams(team_id),
     cluster_id                  INT NOT NULL REFERENCES pattern_clusters(cluster_id),
     n_sequences                 INT NOT NULL,
     pct                         DOUBLE PRECISION NOT NULL,
     representative_sequence_ids BIGINT[] NOT NULL DEFAULT '{}',
-    PRIMARY KEY (team_id, cluster_id)
+    PRIMARY KEY (competition_id, season_id, team_id, cluster_id)
 );
