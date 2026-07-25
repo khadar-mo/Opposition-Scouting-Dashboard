@@ -63,6 +63,19 @@ statsbomb/open-data (raw JSON)
 Prereqs: Docker, [uv](https://docs.astral.sh/uv/), Node 22+.
 
 ```bash
+./run.sh setup    # first time only: download, ingest, derive, train (~15 min)
+./run.sh          # start Postgres, the API and the dashboard
+```
+
+`run.sh` frees its own ports if something is already listening, waits for
+Postgres, refuses to start against an empty database (pointing you at `setup`),
+and shuts both servers down cleanly on Ctrl-C. `./run.sh status` shows what's
+up; `./run.sh stop` stops everything.
+
+<details>
+<summary>Or run each step by hand</summary>
+
+```bash
 # 1. Postgres + (later) the app
 docker compose up -d db
 
@@ -84,8 +97,12 @@ uv run uvicorn backend.main:app --port 8000     # API
 cd frontend && npm install && npm run dev        # dashboard at localhost:5173
 ```
 
+</details>
+
 Or, once the database is populated: `docker compose up --build` serves the full
-app (API + built frontend) at `localhost:8000`.
+app (API + built frontend) at `localhost:8000`. Note that container also
+publishes port 8000, so stop it (`docker compose stop app`) before running the
+dev servers, or it will shadow them.
 
 **Tests / checks** (same as CI):
 

@@ -28,3 +28,4 @@ frontend/dist/
 
 # Jupyter
 .ipynb_checkpoints/
+.run-logs/
