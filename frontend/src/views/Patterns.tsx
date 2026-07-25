@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api, type Pattern, type Representative } from '../api'
+import { api, type CompKey, type Pattern, type Representative } from '../api'
 import { Pitch } from '../components/Pitch'
 
 function StepMarks({ rep, upto }: { rep: Representative; upto: number }) {
@@ -101,10 +101,10 @@ function SequencePlayer({ rep }: { rep: Representative }) {
   )
 }
 
-export function Patterns({ teamId, teamName }: { teamId: number; teamName: string }) {
+export function Patterns({ teamId, teamName, comp }: { teamId: number; teamName: string; comp: CompKey }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['patterns', teamId],
-    queryFn: () => api.patterns(teamId),
+    queryKey: ['patterns', teamId, comp],
+    queryFn: () => api.patterns(teamId, comp),
   })
   const [selected, setSelected] = useState<number | null>(null)
   const [repIdx, setRepIdx] = useState(0)

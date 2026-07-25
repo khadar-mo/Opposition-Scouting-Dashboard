@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../api'
+import { api, type CompKey } from '../api'
 
-export function Watchlist({ teamId, teamName }: { teamId: number; teamName: string }) {
+export function Watchlist({ teamId, teamName, comp }: { teamId: number; teamName: string; comp: CompKey }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['watchlist', teamId],
-    queryFn: () => api.watchlist(teamId),
+    queryKey: ['watchlist', teamId, comp],
+    queryFn: () => api.watchlist(teamId, comp),
   })
 
   if (isLoading || !data) return <div className="placeholder">Loading watchlist…</div>

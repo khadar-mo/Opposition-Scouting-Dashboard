@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api, type Report as ReportData } from '../api'
+import { api, compKey, type CompKey, type Report as ReportData } from '../api'
 
 const LANES = ['left wing', 'left half-space', 'central areas', 'right half-space', 'right wing']
 const ZONE_LABELS: Record<string, string> = {
@@ -38,11 +38,17 @@ function keyThreatsParagraph(r: ReportData): string {
   )
 }
 
-export function Report({ teamId }: { teamId: number }) {
+export function Report({ teamId, comp }: { teamId: number; comp: CompKey }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['report', teamId],
-    queryFn: () => api.report(teamId),
+    queryKey: ['report', teamId, comp],
+    queryFn: () => api.report(teamId, comp),
   })
+  const competitionsQuery = useQuery({
+    queryKey: ['competitions'],
+    queryFn: api.competitions,
+  })
+  const activeComp = (competitionsQuery.data ?? []).find((c) => compKey(c) === comp)
+  const compName = activeComp ? `${activeComp.name} ${activeComp.season_name}` : ''
 
   if (isLoading || !data) return <div className="placeholder">Building report…</div>
 
@@ -69,7 +75,7 @@ export function Report({ teamId }: { teamId: number }) {
           <div>
             <h1>Opposition report — {name}</h1>
             <p className="report-sub">
-              FIFA World Cup 2022 · {rec.played} matches ({rec.won}W {rec.drawn}D{' '}
+              {compName} · {rec.played} matches ({rec.won}W {rec.drawn}D{' '}
               {rec.played - rec.won - rec.drawn}L, {rec.goals_for}–{rec.goals_against}) · StatsBomb
               event data
             </p>
@@ -119,8 +125,8 @@ export function Report({ teamId }: { teamId: number }) {
 
         <footer className="report-footer">
           Generated from StatsBomb open event data · xT = expected threat from a possession-value
-          model trained on this tournament · sample sizes shown throughout — treat 3-match teams
-          with caution.
+          model trained across the ingested tournaments · sample sizes shown throughout — treat
+          3-match teams with caution.
         </footer>
       </article>
     </div>

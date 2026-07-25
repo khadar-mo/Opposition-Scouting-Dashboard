@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../api'
+import { api, type CompKey } from '../api'
 import { Pitch } from '../components/Pitch'
 import { TooltipLayer } from '../components/Tooltip'
 import { useTooltip } from '../lib/useTooltip'
@@ -19,10 +19,10 @@ const SWING_COLOR: Record<string, string> = {
   Straight: 'var(--muted)',
 }
 
-export function SetPieces({ teamId, teamName }: { teamId: number; teamName: string }) {
+export function SetPieces({ teamId, teamName, comp }: { teamId: number; teamName: string; comp: CompKey }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['setpieces', teamId],
-    queryFn: () => api.setPieces(teamId),
+    queryKey: ['setpieces', teamId, comp],
+    queryFn: () => api.setPieces(teamId, comp),
   })
   const { tip, show, hide } = useTooltip()
 

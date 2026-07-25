@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../api'
+import { api, type CompKey } from '../api'
 import { Pitch } from '../components/Pitch'
 import { TooltipLayer } from '../components/Tooltip'
 import { useTooltip } from '../lib/useTooltip'
@@ -14,11 +14,11 @@ const PHASES = [
   { key: 'set_piece', label: 'Set piece' },
 ] as const
 
-export function PassNetwork({ teamId, teamName }: { teamId: number; teamName: string }) {
+export function PassNetwork({ teamId, teamName, comp }: { teamId: number; teamName: string; comp: CompKey }) {
   const [phase, setPhase] = useState<string>('all')
   const { data, isLoading } = useQuery({
-    queryKey: ['passnet', teamId, phase],
-    queryFn: () => api.passNetwork(teamId, phase),
+    queryKey: ['passnet', teamId, comp, phase],
+    queryFn: () => api.passNetwork(teamId, comp, phase),
   })
   const { tip, show, hide } = useTooltip()
 

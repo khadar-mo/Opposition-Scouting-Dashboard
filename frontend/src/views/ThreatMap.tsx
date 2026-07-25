@@ -1,17 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { scaleSequential } from 'd3-scale'
 import { piecewise, interpolateRgb } from 'd3-interpolate'
-import { api } from '../api'
+import { api, type CompKey } from '../api'
 import { Pitch } from '../components/Pitch'
 import { TooltipLayer } from '../components/Tooltip'
 import { useTooltip } from '../lib/useTooltip'
 
 const RAMP = ['#1c1917', '#3a2313', '#6b3a10', '#a5570e', '#d97b1e', '#ffa245', '#ffc98a']
 
-export function ThreatMap({ teamId, teamName }: { teamId: number; teamName: string }) {
+export function ThreatMap({ teamId, teamName, comp }: { teamId: number; teamName: string; comp: CompKey }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['threat', teamId],
-    queryFn: () => api.threatMap(teamId),
+    queryKey: ['threat', teamId, comp],
+    queryFn: () => api.threatMap(teamId, comp),
   })
   const { tip, show, hide } = useTooltip()
 

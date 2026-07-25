@@ -1,5 +1,25 @@
 /** Typed client for the scouting API. */
 
+export interface Competition {
+  competition_id: number
+  season_id: number
+  name: string
+  season_name: string
+  n_matches: number
+}
+
+/** Compact key for a competition/season pair, e.g. "43-106". */
+export type CompKey = `${number}-${number}`
+
+export function compKey(c: { competition_id: number; season_id: number }): CompKey {
+  return `${c.competition_id}-${c.season_id}`
+}
+
+export function parseCompKey(key: string): { competition_id: number; season_id: number } | null {
+  const m = /^(\d+)-(\d+)$/.exec(key)
+  return m ? { competition_id: Number(m[1]), season_id: Number(m[2]) } : null
+}
+
 export interface Team {
   team_id: number
   name: string
@@ -141,14 +161,31 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
+function qs(comp: CompKey, extra: Record<string, string> = {}): string {
+  const parsed = parseCompKey(comp)
+  const params = new URLSearchParams(extra)
+  if (parsed) {
+    params.set('competition_id', String(parsed.competition_id))
+    params.set('season_id', String(parsed.season_id))
+  }
+  return `?${params.toString()}`
+}
+
 export const api = {
-  teams: () => get<Team[]>('/api/teams'),
-  profile: (id: number) => get<Profile>(`/api/teams/${id}/profile`),
-  threatMap: (id: number) => get<ThreatZone[]>(`/api/teams/${id}/threat-map`),
-  passNetwork: (id: number, phase: string) =>
-    get<PassNetwork>(`/api/teams/${id}/pass-network?phase=${phase}`),
-  patterns: (id: number) => get<Pattern[]>(`/api/teams/${id}/patterns`),
-  setPieces: (id: number) => get<SetPieces>(`/api/teams/${id}/set-pieces`),
-  watchlist: (id: number) => get<WatchlistPlayer[]>(`/api/teams/${id}/watchlist`),
-  report: (id: number) => get<Report>(`/api/teams/${id}/report`),
+  competitions: () => get<Competition[]>('/api/competitions'),
+  teams: (comp: CompKey) => get<Team[]>(`/api/teams${qs(comp)}`),
+  profile: (id: number, comp: CompKey) =>
+    get<Profile>(`/api/teams/${id}/profile${qs(comp)}`),
+  threatMap: (id: number, comp: CompKey) =>
+    get<ThreatZone[]>(`/api/teams/${id}/threat-map${qs(comp)}`),
+  passNetwork: (id: number, comp: CompKey, phase: string) =>
+    get<PassNetwork>(`/api/teams/${id}/pass-network${qs(comp, { phase })}`),
+  patterns: (id: number, comp: CompKey) =>
+    get<Pattern[]>(`/api/teams/${id}/patterns${qs(comp)}`),
+  setPieces: (id: number, comp: CompKey) =>
+    get<SetPieces>(`/api/teams/${id}/set-pieces${qs(comp)}`),
+  watchlist: (id: number, comp: CompKey) =>
+    get<WatchlistPlayer[]>(`/api/teams/${id}/watchlist${qs(comp)}`),
+  report: (id: number, comp: CompKey) =>
+    get<Report>(`/api/teams/${id}/report${qs(comp)}`),
 }

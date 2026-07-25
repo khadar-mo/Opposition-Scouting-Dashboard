@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api } from './api'
+import { api, compKey, parseCompKey, type CompKey } from './api'
 import { ThreatMap } from './views/ThreatMap'
 import { PassNetwork } from './views/PassNetwork'
 import { Patterns } from './views/Patterns'
@@ -18,6 +18,8 @@ const TABS = [
 ] as const
 type Tab = (typeof TABS)[number]
 
+const DEFAULT_COMP: CompKey = '43-106' // FIFA World Cup 2022
+
 function initials(name: string): string {
   return name
     .split(' ')
@@ -27,38 +29,45 @@ function initials(name: string): string {
     .toUpperCase()
 }
 
-function initialState(): { team: number | null; tab: Tab } {
+function shortCompName(name: string, season: string): string {
+  return `${name.replace('FIFA ', '').replace('UEFA ', '')} ${season}`
+}
+
+function initialState(): { team: number | null; tab: Tab; comp: CompKey } {
   const params = new URLSearchParams(window.location.search)
   const team = params.get('team')
   const tab = params.get('tab')
+  const comp = parseCompKey(params.get('comp') ?? '')
   return {
     team: team ? Number(team) : null,
     tab: TABS.includes(tab as Tab) ? (tab as Tab) : 'Threat map',
+    comp: comp ? compKey(comp) : DEFAULT_COMP,
   }
 }
 
-function syncUrl(team: number | null, tab: Tab) {
+function syncUrl(team: number | null, tab: Tab, comp: CompKey) {
   const params = new URLSearchParams()
+  if (comp !== DEFAULT_COMP) params.set('comp', comp)
   if (team !== null) params.set('team', String(team))
   if (tab !== 'Threat map') params.set('tab', tab)
-  const qs = params.toString()
-  window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  const q = params.toString()
+  window.history.replaceState(null, '', q ? `?${q}` : window.location.pathname)
 }
 
 export default function App() {
   const [teamId, setTeamIdRaw] = useState<number | null>(() => initialState().team)
   const [tab, setTabRaw] = useState<Tab>(() => initialState().tab)
+  const [comp, setCompRaw] = useState<CompKey>(() => initialState().comp)
   const [search, setSearch] = useState('')
-  const setTeamId = (id: number) => {
-    setTeamIdRaw(id)
-    syncUrl(id, tab)
-  }
-  const setTab = (t: Tab) => {
-    setTabRaw(t)
-    syncUrl(teamId, t)
-  }
 
-  const teamsQuery = useQuery({ queryKey: ['teams'], queryFn: api.teams })
+  const competitionsQuery = useQuery({
+    queryKey: ['competitions'],
+    queryFn: api.competitions,
+  })
+  const teamsQuery = useQuery({
+    queryKey: ['teams', comp],
+    queryFn: () => api.teams(comp),
+  })
   const teams = useMemo(() => teamsQuery.data ?? [], [teamsQuery.data])
   const filtered = useMemo(
     () => teams.filter((t) => t.name.toLowerCase().includes(search.toLowerCase())),
@@ -66,19 +75,55 @@ export default function App() {
   )
   const selected = teams.find((t) => t.team_id === teamId) ?? null
 
+  const setTeamId = (id: number) => {
+    setTeamIdRaw(id)
+    syncUrl(id, tab, comp)
+  }
+  const setTab = (t: Tab) => {
+    setTabRaw(t)
+    syncUrl(teamId, t, comp)
+  }
+  const switchComp = async (next: CompKey) => {
+    setCompRaw(next)
+    // Keep the selected team when it exists in the other tournament
+    // (Spain, France, England…); otherwise clear the selection.
+    let keep: number | null = null
+    if (teamId !== null) {
+      const nextTeams = await api.teams(next)
+      keep = nextTeams.some((t) => t.team_id === teamId) ? teamId : null
+    }
+    setTeamIdRaw(keep)
+    syncUrl(keep, tab, next)
+  }
+
   const profileQuery = useQuery({
-    queryKey: ['profile', teamId],
-    queryFn: () => api.profile(teamId ?? 0),
-    enabled: teamId !== null,
+    queryKey: ['profile', teamId, comp],
+    queryFn: () => api.profile(teamId ?? 0, comp),
+    enabled: teamId !== null && selected !== null,
   })
   const record = profileQuery.data?.record
+  const competitions = competitionsQuery.data ?? []
+  const activeComp = competitions.find((c) => compKey(c) === comp)
 
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
           <h1>Opposition Scouting</h1>
-          <span>FIFA World Cup 2022 · StatsBomb open data</span>
+          <span>StatsBomb open data</span>
+        </div>
+        <div className="comp-toggle" role="tablist" aria-label="Competition">
+          {competitions.map((c) => (
+            <button
+              key={compKey(c)}
+              role="tab"
+              aria-selected={compKey(c) === comp}
+              className={`comp-btn${compKey(c) === comp ? ' active' : ''}`}
+              onClick={() => void switchComp(compKey(c))}
+            >
+              {shortCompName(c.name, c.season_name)}
+            </button>
+          ))}
         </div>
         <input
           className="team-search"
@@ -111,6 +156,12 @@ export default function App() {
               Select a team to get their tactical profile: where they generate threat, how they
               build up, who to watch, and their set-piece habits.
             </p>
+            {activeComp && (
+              <p style={{ fontSize: 12.5 }}>
+                Showing {activeComp.name} {activeComp.season_name} ·{' '}
+                {activeComp.n_matches} matches
+              </p>
+            )}
           </div>
         ) : (
           <>
@@ -124,6 +175,11 @@ export default function App() {
                   {' · '}
                   {record.goals_for} scored, {record.goals_against} conceded ·{' '}
                   {selected.n_matches} matches
+                </span>
+              )}
+              {activeComp && (
+                <span className="comp-chip">
+                  {shortCompName(activeComp.name, activeComp.season_name)}
                 </span>
               )}
             </header>
@@ -140,21 +196,21 @@ export default function App() {
             </nav>
             <section className="view">
               {tab === 'Threat map' && (
-                <ThreatMap teamId={selected.team_id} teamName={selected.name} />
+                <ThreatMap teamId={selected.team_id} teamName={selected.name} comp={comp} />
               )}
               {tab === 'Pass network' && (
-                <PassNetwork teamId={selected.team_id} teamName={selected.name} />
+                <PassNetwork teamId={selected.team_id} teamName={selected.name} comp={comp} />
               )}
               {tab === 'Build-up patterns' && (
-                <Patterns teamId={selected.team_id} teamName={selected.name} />
+                <Patterns teamId={selected.team_id} teamName={selected.name} comp={comp} />
               )}
               {tab === 'Set pieces' && (
-                <SetPieces teamId={selected.team_id} teamName={selected.name} />
+                <SetPieces teamId={selected.team_id} teamName={selected.name} comp={comp} />
               )}
               {tab === 'Watchlist' && (
-                <Watchlist teamId={selected.team_id} teamName={selected.name} />
+                <Watchlist teamId={selected.team_id} teamName={selected.name} comp={comp} />
               )}
-              {tab === 'Match report' && <Report teamId={selected.team_id} />}
+              {tab === 'Match report' && <Report teamId={selected.team_id} comp={comp} />}
             </section>
           </>
         )}

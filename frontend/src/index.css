@@ -695,3 +695,45 @@ button {
     color: #222 !important;
   }
 }
+
+/* ---------- competition toggle ---------- */
+
+.comp-toggle {
+  display: flex;
+  gap: 4px;
+  margin: 12px 12px 0;
+  padding: 3px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.comp-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 550;
+  line-height: 1.25;
+}
+
+.comp-btn:hover {
+  color: var(--ink-2);
+}
+
+.comp-btn.active {
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.comp-chip {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11.5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
